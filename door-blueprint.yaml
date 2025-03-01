@@ -4,6 +4,14 @@ blueprint:
     Rich notifications for a door left open.
 
     Version 2025.03.01.1
+  # Ideas:
+  # - Configurable delay for when to show the notification
+  # - Optionally suppress notifications if home (separate configurable delay?)
+  # - Notification should be persistent if the door is still open
+  # - Notification updates with the close time and is non-persistent if the door is closed
+  # - Notification has camera or camera snapshot attached
+  # - Notification has configurable link to a dashboard
+  # - Notification has links to close the door
   domain: automation
   input:
     trigger_entity:
