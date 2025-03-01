@@ -1,0 +1,171 @@
+blueprint:
+  name: Door open notification 2.0
+  description: |
+    Rich notifications for a door left open.
+
+    Version 2025.02.24.3
+  domain: automation
+  input:
+    trigger_entity:
+      name: Entity
+      description: The entity that will trigger the automation.
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+            - input_boolean
+    friendly_name:
+      name: Friendly name
+      description: "Optional: The readable name for the triggering entity. Default: Entity friendly name with the last word removed (e.g. Front door Opening => Front door)."
+      default: ""
+      selector:
+        text:
+    minimum_duration:
+      name: Time before notification
+      description: The amount of time the door must be open before a notification is sent.
+      default:
+        minutes: 2
+      selector:
+        duration:
+    disable_entity:
+      name: Notification suppression entity
+      description: "Optional: A boolean entity that will suppress notifications. The boolean should remain true for the entire duration of the door being open to suppress the notification."
+      default: ""
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+            - input_boolean
+    notify_service:
+      name: Notify service
+      description: The service that will be called to deliver the notification.
+      default: "notify.mobile_app_<device_id>"
+      selector:
+        text:
+    notification_click_url:
+      name: Click URL
+      description: Where the user will be taken if they tap the notification.
+      default: "/lovelace/ROOM"
+      selector:
+        text:
+    notification_title:
+      name: Notification title
+      description: "Optional: The title of the notification."
+      default: ""
+      selector:
+        text:
+    notification_message:
+      name: Notification message
+      description: The message of the notification.
+      default: "{{ friendly_name }} left open at {{ as_timestamp(start_time) | timestamp_custom('%T', True) }}"
+      selector:
+        text:
+    resolved_message:
+      name: Resolved message
+      description: What to change the message to when the situation is resolved. Use "clear_notification" to remove the notification entirely.
+      default: "{{ friendly_name }} was left open from {{ as_timestamp(start_time) | timestamp_custom('%T', True) }} to {{ as_timestamp(end_time) | timestamp_custom('%T', True) }}"
+      selector:
+        text:
+    resolved_click_url:
+      name: Resolved click URL
+      description: Where the user will be taken if they tap the notification after the issue is resolved.
+      default: "/lovelace/ROOM"
+      selector:
+        text:
+mode: queued
+trigger_variables:
+  disable_entity: !input disable_entity
+  minimum_duration: !input minimum_duration
+trigger:
+  - platform: state
+    # Normal trigger for the door opening.
+    entity_id: !input trigger_entity
+    to: "on"
+    for: !input minimum_duration
+    id: "door_opened"
+  - platform: state
+    # Trigger for the door closing.
+    # Note that this always has to be a state trigger, because we need trigger.from_state and trigger.to_state.
+    entity_id: !input trigger_entity
+    from: "on"
+    id: "door_closed"
+  - platform: template
+    # Trigger for the disable_entity transitioning to off while the door is (potentially) open. The second half of this condition is tested below.
+    value_template: "{{ is_state(disable_entity, 'off') }}"
+    id: "reenabled"
+conditions:
+  - condition: template
+    # Evaluate the state of disable_entity.
+    # First just check if it's off and short-circuit.
+    # Next, if we're executing the door_closed trigger, then check to see if we already sent a door_opened notification and ignore the state of disable_entity.
+    # This second condition lets us handle the case where we already notified that the door was opened, and still need to send the update that it's been closed.
+    value_template: >
+      {% if disable_entity|length > 0 %}
+        {{ is_state(disable_entity, 'off') or (trigger.id == 'door_closed' and states[disable_entity].last_changed > trigger.from_state.last_changed) }}
+      {% else %}
+        true
+      {% endif %}
+  - condition: or
+    # This is an extra condition that applies only to the door_closed trigger. It tests whether the door was opened for the minimum duration (i.e. did we send a notification).
+    conditions:
+      - condition: not
+        conditions:
+          - condition: trigger
+            id: "door_closed"
+      - condition: template
+        value_template: "{{ (trigger.to_state.last_changed - trigger.from_state.last_changed) >= timedelta(**minimum_duration) }}"
+  - condition: or
+    # This is an extra condition that applies only to the "reenabled" trigger. It tests whether the required minimum time has elapsed.
+    conditions:
+      - condition: not
+        conditions:
+          - condition: trigger
+            id: "reenabled"
+      - condition: state
+        entity_id: !input trigger_entity
+        state: "on"
+        for: !input minimum_duration
+action:
+  - variables:
+      trigger_entity: !input trigger_entity
+      input_friendly_name: !input friendly_name
+      friendly_name: >
+        {% if input_friendly_name|length > 0 %}
+          {{ input_friendly_name }}
+        {% else %}
+          {{ state_attr(trigger_entity, 'friendly_name').rsplit(' ', 1)[0] }}
+        {% endif %}
+      notification_tag: "{{ trigger_entity[-20:] }}-door-open"
+  - choose:
+    - conditions:
+        - condition: trigger
+          id: "door_closed"
+      sequence:
+        # Update notification with closing time.
+        # TODO: Add timeout?
+        - variables:
+            start_time: "{{ trigger.from_state.last_changed }}"
+            end_time: "{{ trigger.to_state.last_changed }}"
+        - service: !input notify_service
+          data:
+            message: !input resolved_message
+            title: !input notification_title
+            data:
+              clickAction: !input resolved_click_url
+              tag: "{{ notification_tag }}"
+              notification_icon: "mdi:door-closed"
+              alert_once: true
+    default:
+      # Send initial notification.
+      - variables:
+          # Need to use trigger_entity here instead of trigger.to_state because of the template trigger.
+          start_time: "{{ states[trigger_entity].last_changed }}"
+      - service: !input notify_service
+        data:
+          message: !input notification_message
+          title: !input notification_title
+          data:
+            clickAction: !input notification_click_url
+            tag: "{{ notification_tag }}"
+            notification_icon: "mdi:door-open"
+            alert_once: true # Alert once in case a flapping disable_entity is causing us to uselessly update the notification.
