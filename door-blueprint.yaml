@@ -3,7 +3,7 @@ blueprint:
   description: |
     Rich notifications for a door left open.
 
-    Version 2025.03.01.0
+    Version 2025.03.01.1
   domain: automation
   input:
     trigger_entity:
@@ -66,12 +66,24 @@ blueprint:
       default: "{{ friendly_name }} left open at {{ as_timestamp(start_time) | timestamp_custom('%T', True) }}"
       selector:
         text:
+    open_icon:
+      name: Open icon
+      description: Icon to use for notifications when the door is still open.
+      default: "mdi:door-open"
+      selector:
+        icon:
     resolved_message:
       name: Resolved message
       description: What to change the message to when the situation is resolved. Use "clear_notification" to remove the notification entirely.
       default: "{{ friendly_name }} was left open from {{ as_timestamp(start_time) | timestamp_custom('%T', True) }} to {{ as_timestamp(end_time) | timestamp_custom('%T', True) }}"
       selector:
         text:
+    resolved_icon:
+      name: Resolved icon
+      description: Icon to use for notifications when the situation is resolved.
+      default: "mdi:door-closed"
+      selector:
+        icon:
     resolved_click_url:
       name: Resolved click URL
       description: Where the user will be taken if they tap the notification after the issue is resolved.
@@ -159,7 +171,7 @@ action:
             data:
               clickAction: !input resolved_click_url
               tag: "{{ notification_tag }}"
-              notification_icon: "mdi:door-closed"
+              notification_icon: !input resolved_icon
               alert_once: true
     default:
       # Send initial notification.
@@ -173,5 +185,5 @@ action:
           data:
             clickAction: !input notification_click_url
             tag: "{{ notification_tag }}"
-            notification_icon: "mdi:door-open"
+            notification_icon: !input open_icon
             alert_once: true # Alert once in case a flapping disable_entity is causing us to uselessly update the notification.
