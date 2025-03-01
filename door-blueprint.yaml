@@ -3,7 +3,7 @@ blueprint:
   description: |
     Rich notifications for a door left open.
 
-    Version 2025.02.24.3
+    Version 2025.03.01.0
   domain: automation
   input:
     trigger_entity:
@@ -18,6 +18,12 @@ blueprint:
       name: Friendly name
       description: "Optional: The readable name for the triggering entity. Default: Entity friendly name with the last word removed (e.g. Front door Opening => Front door)."
       default: ""
+      selector:
+        text:
+    state_to_notify:
+      name: State to notify
+      description: Entity state for which notifications should be sent (e.g. on). Setting this to values other than "on" is useful for cases where the entity is the inverse of the door state (e.g. a door closed limit switch).
+      default: "on"
       selector:
         text:
     minimum_duration:
@@ -80,14 +86,14 @@ trigger:
   - platform: state
     # Normal trigger for the door opening.
     entity_id: !input trigger_entity
-    to: "on"
+    to: !input state_to_notify
     for: !input minimum_duration
     id: "door_opened"
   - platform: state
     # Trigger for the door closing.
     # Note that this always has to be a state trigger, because we need trigger.from_state and trigger.to_state.
     entity_id: !input trigger_entity
-    from: "on"
+    from: !input state_to_notify
     id: "door_closed"
   - platform: template
     # Trigger for the disable_entity transitioning to off while the door is (potentially) open. The second half of this condition is tested below.
@@ -123,7 +129,7 @@ conditions:
             id: "reenabled"
       - condition: state
         entity_id: !input trigger_entity
-        state: "on"
+        state: !input state_to_notify
         for: !input minimum_duration
 action:
   - variables:
