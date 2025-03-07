@@ -1,0 +1,118 @@
+blueprint:
+  name: Door open notification
+  description: |
+    Rich notifications for a door left open.
+
+    Version 2025.02.23.0
+  domain: automation
+  input:
+    trigger_entity:
+      name: Entity
+      description: The entity that will trigger the automation.
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+            - input_boolean
+    friendly_name:
+      name: Friendly name
+      description: The readable name for the triggering entity.
+      default: "Front door"
+      selector:
+        text:
+    minimum_duration:
+      name: Time before notification
+      description: The amount of time the door must be open before a notification is sent.
+      default:
+        minutes: 2
+      selector:
+        duration:
+    disable_entity:
+      name: Notification suppression entity
+      description: A boolean entity that will suppress notifications. The boolean should remain true for the entire duration of the door being open to suppress the notification. (optional)
+      default: ""
+      selector:
+        entity:
+          domain:
+            - binary_sensor
+            - input_boolean
+    notify_service:
+      name: Notify service
+      description: The service that will be called to deliver the notification.
+      default: "notify.mobile_app_<device_id>"
+      selector:
+        text:
+    notification_click_url:
+      name: Click URL
+      description: Where the user will be taken if they tap the notification.
+      default: "/lovelace/ROOM"
+      selector:
+        text:
+    notification_title:
+      name: Notification title
+      description: The title of the notification. (optional)
+      default: ""
+      selector:
+        text:
+    notification_message:
+      name: Notification message
+      description: The message of the notification.
+      default: "{{ friendly_name }} left open at {{ as_timestamp(start_time) | timestamp_custom('%T', True) }}"
+      selector:
+        text:
+    resolved_message:
+      name: Resolved message
+      description: What to change the message to when the situation is resolved. Use "clear_notification" to remove the notification entirely.
+      default: "{{ friendly_name }} was left open from {{ as_timestamp(start_time) | timestamp_custom('%T', True) }} to {{ as_timestamp(end_time) | timestamp_custom('%T', True) }}"
+      selector:
+        text:
+    resolved_click_url:
+      name: Resolved click URL
+      description: Where the user will be taken if they tap the notification after the issue is resolved.
+      default: "/lovelace/ROOM"
+      selector:
+        text:
+mode: queued
+trigger_variables:
+  disable_entity: !input disable_entity
+trigger:
+  - platform: state
+    entity_id: !input trigger_entity
+    to: "on"
+    for: !input minimum_duration
+conditions:
+  - condition: template
+    value_template: >
+      {% if disable_entity|length > 0 %}
+        {{ is_state(disable_entity, 'off') }}
+      {% else %}
+        true
+      {% endif %}
+action:
+  - variables:
+      trigger_entity: !input trigger_entity
+      friendly_name: !input friendly_name
+      start_time: "{{ states[trigger_entity].last_changed }}"
+      notification_tag: "{{ trigger_entity[-20:] }}-door-open"
+  - service: !input notify_service
+    data:
+      message: !input notification_message
+      title: !input notification_title
+      data:
+        clickAction: !input notification_click_url
+        tag: "{{ notification_tag }}"
+        notification_icon: "mdi:door-open"
+  - wait_for_trigger:
+    - platform: state
+      entity_id: !input trigger_entity
+      to: "off"
+  - variables:
+      end_time: "{{ states[trigger_entity].last_changed }}"
+  - service: !input notify_service
+    data:
+      message: !input resolved_message
+      title: !input notification_title
+      data:
+        clickAction: !input resolved_click_url
+        tag: "{{ notification_tag }}"
+        notification_icon: "mdi:door-closed"
