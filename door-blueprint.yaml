@@ -1,5 +1,5 @@
 blueprint:
-  name: Door open notification 2.0
+  name: Door open notification
   description: |
     Rich notifications for a door left open.
 
