@@ -3,7 +3,7 @@ blueprint:
   description: |
     Rich notifications for a door left open.
 
-    Version 2025.03.01.1
+    Version 2025.05.05.1
   # Ideas:
   # - DONE: Configurable delay for when to show the notification
   # - DONE: Optionally suppress notifications if home (separate configurable delay?)
@@ -22,6 +22,7 @@ blueprint:
           domain:
             - binary_sensor
             - input_boolean
+            - sensor
     friendly_name:
       name: Friendly name
       description: "Optional: The readable name for the triggering entity. Default: Entity friendly name with the last word removed (e.g. Front door Opening => Front door)."
