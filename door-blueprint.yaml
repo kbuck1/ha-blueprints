@@ -1,7 +1,7 @@
 blueprint:
   name: Door open notification
   description: |
-    Rich notifications for a door left open.
+    Rich notifications including timestamps for sensor conditions.
 
     Version 2025.05.05.1
   # Ideas:
