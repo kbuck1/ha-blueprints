@@ -8,77 +8,77 @@ blueprint:
   input:
     timer_entity:
       name: Timer entity
-      description: The entity that will be bound to the Inovelli switch.
+      description: "The entity that will be bound to the Inovelli switch."
       selector:
         entity:
           domain: timer
     switch_device:
       name: Switch device
-      description: The switch that will be bound to the timer. Note: This must be a Blue Series switch.
+      description: "The switch that will be bound to the timer. Note: This must be a Blue Series switch."
       selector:
         device:
           manufacturer: Inovelli
     led_script:
       name: LED script
-      description: The entity name for kschlichter's LED script.
+      description: "The entity name for kschlichter's LED script."
       default: "script.inovelli_led"
       selector:
         entity:
           domain: script
     duration_max:
       name: Maximum duration
-      description: The maximum duration of the timer. This is used to scale the LED bar, as well as to prevent increasing the duration beyond a reasonable limit.
+      description: "The maximum duration of the timer. This is used to scale the LED bar, as well as to prevent increasing the duration beyond a reasonable limit."
       default:
         minutes: 30
       selector:
         duration:
     duration_increment:
       name: Incremental duration
-      description: The incremental duration added or removed when the switch is pressed. Use 0 to disable changing the timer.
+      description: "The incremental duration added or removed when the switch is pressed. Use 0 to disable changing the timer."
       default:
         minutes: 5
       selector:
         duration:
     update_interval:
       name: Update interval
-      description: The interval at which the LED bar will be updated. Lower values may cause significant Zigbee network traffic. Set to 0 to disable ramping down the brightness of the top LED.
+      description: "The interval at which the LED bar will be updated. Lower values may cause significant Zigbee network traffic. Set to 0 to disable ramping down the brightness of the top LED."
       default:
         seconds: 15
       selector:
         duration:
     running_color:
       name: Running color
-      description: The color of the LED bar while the timer is running.
+      description: "The color of the LED bar while the timer is running."
       default: "blue"
       selector:
         text:
     running_effect:
       name: Effect
-      description: The effect for the LEDs while the timer is running.
+      description: "The effect for the LEDs while the timer is running."
       default: "slow blink"
       selector:
         text:
     paused_color:
       name: Paused color
-      description: The color of the LED bar while the timer is paused.
+      description: "The color of the LED bar while the timer is paused."
       default: "red"
       selector:
         text:
     paused_effect:
       name: Effect
-      description: The effect for the LEDs while the timer is paused.
+      description: "The effect for the LEDs while the timer is paused."
       default: "pulse"
       selector:
         text:
     control_load:
       name: Control load
-      description: Whether to turn the load on when starting the timer, and off when stopping the timer.
+      description: "Whether to turn the load on when starting the timer, and off when stopping the timer."
       default: true
       selector:
         boolean:
     control_other_entities:
       name: Other entities to control
-      description: A list of entities to control when the timer is started or stopped. (optional)
+      description: "A list of entities to control when the timer is started or stopped. (optional)"
       selector:
         entity:
           multiple: true
