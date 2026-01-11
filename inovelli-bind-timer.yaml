@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.10.0
+    Version 2026.01.10.1
   domain: automation
   input:
     timer_entity:
@@ -87,6 +87,7 @@ blueprint:
               - light
               - switch
               - fan
+      default: []
 mode: restart
 max_exceeded: silent
 trigger_variables:
