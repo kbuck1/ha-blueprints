@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.10.1
+    Version 2026.01.10.2
   domain: automation
   input:
     timer_entity:
@@ -151,9 +151,9 @@ variables:
   paused_effect: !input paused_effect
   control_load: !input control_load
   control_other_entities: !input control_other_entities
-  max_seconds: "{{ (duration_max | as_timedelta).total_seconds() }}"
-  increment_seconds: "{{ (duration_increment | as_timedelta).total_seconds() }}"
-  update_seconds: "{{ (update_interval | as_timedelta).total_seconds() }}"
+  max_seconds: "{{ timedelta(**duration_max).total_seconds() }}"
+  increment_seconds: "{{ timedelta(**duration_increment).total_seconds() }}"
+  update_seconds: "{{ timedelta(**update_interval).total_seconds() }}"
 action:
   - choose:
       # ==================== TIMER STATE CHANGES ====================
