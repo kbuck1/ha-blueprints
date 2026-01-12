@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.11.1
+    Version 2026.01.11.2
   domain: automation
   input:
     timer_entity:
@@ -266,7 +266,7 @@ action:
                 - action: "{{ led_script }}"
                   data:
                     device: !input switch_device
-                    LEDnumber_effect: "{{ repeat.index }}"
+                    LEDnumber_effect: "LED {{ repeat.index }}"
 
       # ==================== BUTTON PRESSES ====================
       - conditions:
