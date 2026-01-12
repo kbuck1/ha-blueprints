@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.10.2
+    Version 2026.01.11.0
   domain: automation
   input:
     timer_entity:
@@ -160,28 +160,30 @@ action:
       - conditions:
           - condition: trigger
             id: "timer_started"
+          - condition: trigger
+            id: "timer_paused"
         sequence:
           # Turn on load and other entities
           - if:
-              - condition: template
-                value_template: "{{ control_load }}"
+              - condition: trigger
+                id: "timer_started"
             then:
-              - service: homeassistant.turn_on
-                target:
-                  device_id: !input switch_device
-          - if:
-              - condition: template
-                value_template: "{{ control_other_entities is defined and control_other_entities | length > 0 }}"
-            then:
-              - service: homeassistant.turn_on
-                target:
-                  entity_id: "{{ control_other_entities }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ control_load }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target:
+                      device_id: !input switch_device
+              - if:
+                  - condition: template
+                    value_template: "{{ control_other_entities is defined and control_other_entities | length > 0 }}"
+                then:
+                  - service: homeassistant.turn_on
+                    target:
+                      entity_id: "{{ control_other_entities }}"
           # Start LED update loop
           - repeat:
-              until:
-                - condition: state
-                  entity_id: !input timer_entity
-                  state: "active"
               sequence:
                 - variables:
                     remaining_seconds: >
@@ -193,12 +195,14 @@ action:
                     segment_size: "{{ max_seconds / 7 }}"
                     position_in_segment: "{{ remaining_seconds - ((led_count - 1) * segment_size) }}"
                     top_led_brightness: "{{ ((position_in_segment / segment_size) * 10) | float }}"
+                    color: "{{ running_color if trigger.id == 'timer_started' else paused_color }}"
+                    effect: "{{ running_effect if trigger.id == 'timer_started' else paused_effect }}"
                 - action: "{{ led_script }}"
                   data:
                     device: !input switch_device
                     LEDnumber_effect: "LED {{ led_count }}"
-                    color: "{{ running_color }}"
-                    effect: "{{ running_effect }}"
+                    color: "{{ color }}"
+                    effect: "{{ effect }}"
                     brightness: "{{ [top_led_brightness, 10.0] | max }}"
                     duration: "indefinitely"
                 # Fill in lower LEDs at full brightness
@@ -209,8 +213,8 @@ action:
                         data:
                           device: !input switch_device
                           LEDnumber_effect: "LED {{ repeat.index }}"
-                          color: "{{ running_color }}"
-                          effect: "solid"
+                          color: "{{ color }}"
+                          effect: "{{ effect }}"
                           brightness: 10.0
                           duration: "indefinitely"
                 # Clear LEDs above current level
@@ -221,52 +225,20 @@ action:
                         data:
                           device: !input switch_device
                           LEDnumber_effect: "LED {{ led_count + repeat.index }}"
-                - delay:
-                    seconds: "{{ update_seconds if update_seconds > 0 else 15 }}"
-
-      - conditions:
-          - condition: trigger
-            id: "timer_paused"
-        sequence:
-          # Show paused state on LED bar
-          - variables:
-              remaining_seconds: >
-                {{ (as_timestamp(state_attr(timer_entity, 'finishes_at')) - now().timestamp()) | int }}
-              fraction: "{{ remaining_seconds / max_seconds }}"
-              led_count: "{{ (fraction * 7) | round(0, 'ceil') | int }}"
-              # Calculate brightness of top LED based on position within its segment
-              segment_size: "{{ max_seconds / 7 }}"
-              position_in_segment: "{{ remaining_seconds - ((led_count - 1) * segment_size) }}"
-              top_led_brightness: "{{ ((position_in_segment / segment_size) * 10) | float }}"
-          - action: "{{ led_script }}"
-            data:
-              device: !input switch_device
-              LEDnumber_effect: "LED {{ led_count }}"
-              color: "{{ paused_color }}"
-              effect: "{{ paused_effect }}"
-              brightness: "{{ [top_led_brightness, 10.0] | max }}"
-              duration: "indefinitely"
-          # Fill in lower LEDs at full brightness
-          - repeat:
-              count: "{{ led_count - 1 }}"
-              sequence:
-                - action: "{{ led_script }}"
-                  data:
-                    device: !input switch_device
-                    LEDnumber_effect: "LED {{ repeat.index }}"
-                    color: "{{ paused_color }}"
-                    effect: "{{ paused_effect }}"
-                    brightness: 10.0
-                    duration: "indefinitely"
-          # Clear LEDs above current level
-          - repeat:
-              count: "{{ 7 - led_count }}"
-              sequence:
-                - action: "{{ led_script }}"
-                  data:
-                    device: !input switch_device
-                    LEDnumber_effect: "LED {{ led_count + repeat.index }}"
-
+                - if:
+                  - condition: trigger
+                    id: "timer_started"
+                  then:
+                    - wait_for_trigger:
+                        - platform: state
+                          entity_id: !input timer_entity
+                      timeout: "{{ update_seconds if update_seconds > 0 else 15 }}"
+              until:
+                - condition: not
+                  conditions:
+                  - condition: state
+                    entity_id: !input timer_entity
+                    state: "active"
       - conditions:
           - condition: trigger
             id: "timer_idle"
@@ -294,8 +266,6 @@ action:
                   data:
                     device: !input switch_device
                     LEDnumber_effect: "{{ repeat.index }}"
-                    effect: "clear"
-                    duration: "indefinitely"
 
       # ==================== BUTTON PRESSES ====================
       - conditions:
