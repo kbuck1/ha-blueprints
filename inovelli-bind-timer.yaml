@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.11.0
+    Version 2026.01.11.1
   domain: automation
   input:
     timer_entity:
@@ -194,9 +194,10 @@ action:
                     # Calculate brightness of top LED based on position within its segment
                     segment_size: "{{ max_seconds / 7 }}"
                     position_in_segment: "{{ remaining_seconds - ((led_count - 1) * segment_size) }}"
-                    top_led_brightness: "{{ ((position_in_segment / segment_size) * 10) | float }}"
+                    top_led_brightness: "{{ 10.0 if update_seconds == 0 else ((position_in_segment / segment_size) * 10) | float }}"
                     color: "{{ running_color if trigger.id == 'timer_started' else paused_color }}"
                     effect: "{{ running_effect if trigger.id == 'timer_started' else paused_effect }}"
+                    next_update: "{{ update_seconds if update_seconds > 0 else remaining_seconds % segment_size }}"
                 - action: "{{ led_script }}"
                   data:
                     device: !input switch_device
@@ -232,7 +233,7 @@ action:
                     - wait_for_trigger:
                         - platform: state
                           entity_id: !input timer_entity
-                      timeout: "{{ update_seconds if update_seconds > 0 else 15 }}"
+                      timeout: "{{ next_update }}"
               until:
                 - condition: not
                   conditions:
