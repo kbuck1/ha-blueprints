@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.11.2
+    Version 2026.01.11.3
   domain: automation
   input:
     timer_entity:
@@ -158,10 +158,12 @@ action:
   - choose:
       # ==================== TIMER STATE CHANGES ====================
       - conditions:
-          - condition: trigger
-            id: "timer_started"
-          - condition: trigger
-            id: "timer_paused"
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: "timer_started"
+              - condition: trigger
+                id: "timer_paused"
         sequence:
           # Turn on load and other entities
           - if:
