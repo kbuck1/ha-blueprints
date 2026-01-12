@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.11.3
+    Version 2026.01.11.4
   domain: automation
   input:
     timer_entity:
@@ -220,14 +220,15 @@ action:
                           effect: "{{ effect }}"
                           brightness: 10.0
                           duration: "indefinitely"
-                # Clear LEDs above current level
+                # Turn off LEDs above current level
                 - repeat:
                     count: "{{ 7 - led_count }}"
                     sequence:
                       - action: "{{ led_script }}"
                         data:
                           device: !input switch_device
-                          LEDnumber_effect: "LED {{ led_count + repeat.index }}"
+                          LEDnumber: "LED {{ led_count + repeat.index }}"
+                          LEDbrightness: 0.0
                 - if:
                   - condition: trigger
                     id: "timer_started"
