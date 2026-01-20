@@ -23,6 +23,7 @@ blueprint:
             - binary_sensor
             - input_boolean
             - sensor
+            - cover
     friendly_name:
       name: Friendly name
       description: "Optional: The readable name for the triggering entity. Default: Entity friendly name with the last word removed (e.g. Front door Opening => Front door)."
