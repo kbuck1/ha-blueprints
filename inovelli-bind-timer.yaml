@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.28.2
+    Version 2026.01.28.3
   domain: automation
   input:
     timer_entity:
@@ -200,37 +200,68 @@ action:
                     color: "{{ running_color if trigger.id == 'timer_started' else paused_color }}"
                     effect: "{{ running_effect if trigger.id == 'timer_started' else paused_effect }}"
                     next_update: "{{ update_seconds if update_seconds > 0 else remaining_seconds % segment_size }}"
-                - action: "{{ led_script }}"
-                  data:
-                    device: !input switch_device
-                    LEDnumber_effect: "LED {{ led_count }}"
-                    color: "{{ color }}"
-                    effect: "{{ effect }}"
-                    brightness: "{{ [top_led_brightness, 10.0] | max }}"
-                    duration: "indefinitely"
-                # Fill in lower LEDs at full brightness
-                - repeat:
-                    count: "{{ led_count - 1 }}"
-                    sequence:
-                      - action: "{{ led_script }}"
-                        data:
-                          device: !input switch_device
-                          LEDnumber_effect: "LED {{ repeat.index }}"
-                          color: "{{ color }}"
-                          effect: "{{ effect }}"
-                          brightness: 10.0
-                          duration: "indefinitely"
-                # Turn off LEDs above current level
-                - repeat:
-                    count: "{{ 7 - led_count }}"
-                    sequence:
-                      - action: "{{ led_script }}"
-                        data:
-                          device: !input switch_device
-                          LEDnumber_effect: "LED {{ led_count + repeat.index }}"
-                          effect: "solid"
-                          brightness: 0.0
-                          duration: "indefinitely"
+                    # Detect if we just crossed a segment boundary (position near top of segment means we just entered it)
+                    just_crossed_boundary: "{{ position_in_segment > (segment_size - update_seconds - 1) }}"
+                # First iteration: set all LEDs to establish initial state
+                - if:
+                    - condition: template
+                      value_template: "{{ repeat.first }}"
+                  then:
+                    # Set top LED with calculated brightness
+                    - action: "{{ led_script }}"
+                      data:
+                        device: !input switch_device
+                        LEDnumber_effect: "LED {{ led_count }}"
+                        color: "{{ color }}"
+                        effect: "{{ effect }}"
+                        brightness: "{{ [top_led_brightness, 10.0] | max }}"
+                        duration: "indefinitely"
+                    # Fill in lower LEDs at full brightness
+                    - repeat:
+                        count: "{{ led_count - 1 }}"
+                        sequence:
+                          - action: "{{ led_script }}"
+                            data:
+                              device: !input switch_device
+                              LEDnumber_effect: "LED {{ repeat.index }}"
+                              color: "{{ color }}"
+                              effect: "{{ effect }}"
+                              brightness: 10.0
+                              duration: "indefinitely"
+                    # Turn off LEDs above current level
+                    - repeat:
+                        count: "{{ 7 - led_count }}"
+                        sequence:
+                          - action: "{{ led_script }}"
+                            data:
+                              device: !input switch_device
+                              LEDnumber_effect: "LED {{ led_count + repeat.index }}"
+                              effect: "solid"
+                              brightness: 0.0
+                              duration: "indefinitely"
+                  else:
+                    # Subsequent iterations: only update LEDs that changed
+                    # Always update top LED (brightness changes over time)
+                    - action: "{{ led_script }}"
+                      data:
+                        device: !input switch_device
+                        LEDnumber_effect: "LED {{ led_count }}"
+                        color: "{{ color }}"
+                        effect: "{{ effect }}"
+                        brightness: "{{ [top_led_brightness, 10.0] | max }}"
+                        duration: "indefinitely"
+                    # If we just crossed a segment boundary, turn off the LED that just depleted
+                    - if:
+                        - condition: template
+                          value_template: "{{ just_crossed_boundary and led_count < 7 }}"
+                      then:
+                        - action: "{{ led_script }}"
+                          data:
+                            device: !input switch_device
+                            LEDnumber_effect: "LED {{ led_count + 1 }}"
+                            effect: "solid"
+                            brightness: 0.0
+                            duration: "indefinitely"
                 - if:
                   - condition: trigger
                     id: "timer_started"
