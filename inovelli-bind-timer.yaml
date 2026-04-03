@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.01.28.3
+    Version 2026.04.03.1
   domain: automation
   input:
     timer_entity:
@@ -72,10 +72,23 @@ blueprint:
         text:
     control_load:
       name: Control load
-      description: "Whether to turn the load on when starting the timer, and off when stopping the timer."
+      description: "Whether to turn the load on when the timer starts and off when it finishes."
       default: true
       selector:
         boolean:
+    load_action_on_cancel:
+      name: Load action on cancel
+      description: "What to do with the load when the timer is cancelled (finish always turns the load off when control load is enabled)."
+      default: "none"
+      selector:
+        select:
+          options:
+            - label: "Do nothing"
+              value: "none"
+            - label: "Turn off"
+              value: "turn_off"
+            - label: "Turn on"
+              value: "turn_on"
     control_other_entities:
       name: Other entities to control
       description: "A list of entities to control when the timer is started or stopped. (optional)"
@@ -96,18 +109,26 @@ trigger_variables:
   duration_increment: !input duration_increment
   update_interval: !input update_interval
 trigger:
-  - platform: state
-    entity_id: !input timer_entity
-    to: "active"
+  - platform: event
+    event_type: timer.started
+    event_data:
+      entity_id: !input timer_entity
     id: "timer_started"
-  - platform: state
-    entity_id: !input timer_entity
-    to: "paused"
+  - platform: event
+    event_type: timer.paused
+    event_data:
+      entity_id: !input timer_entity
     id: "timer_paused"
-  - platform: state
-    entity_id: !input timer_entity
-    to: "idle"
-    id: "timer_idle"
+  - platform: event
+    event_type: timer.finished
+    event_data:
+      entity_id: !input timer_entity
+    id: "timer_finished"
+  - platform: event
+    event_type: timer.cancelled
+    event_data:
+      entity_id: !input timer_entity
+    id: "timer_cancelled"
   - domain: mqtt
     device_id: !input switch_device
     type: action
@@ -150,6 +171,7 @@ variables:
   paused_color: !input paused_color
   paused_effect: !input paused_effect
   control_load: !input control_load
+  load_action_on_cancel: !input load_action_on_cancel
   control_other_entities: !input control_other_entities
   max_seconds: "{{ timedelta(**duration_max).total_seconds() }}"
   increment_seconds: "{{ timedelta(**duration_increment).total_seconds() }}"
@@ -277,17 +299,47 @@ action:
                     entity_id: !input timer_entity
                     state: "active"
       - conditions:
-          - condition: trigger
-            id: "timer_idle"
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: "timer_finished"
+              - condition: trigger
+                id: "timer_cancelled"
         sequence:
-          # Turn off load and other entities
           - if:
               - condition: template
                 value_template: "{{ control_load }}"
             then:
-              - service: homeassistant.turn_off
-                target:
-                  device_id: !input switch_device
+              - choose:
+                  - conditions:
+                      - condition: trigger
+                        id: "timer_finished"
+                    sequence:
+                      - service: homeassistant.turn_off
+                        target:
+                          device_id: !input switch_device
+                  - conditions:
+                      - condition: and
+                        conditions:
+                          - condition: trigger
+                            id: "timer_cancelled"
+                          - condition: template
+                            value_template: "{{ load_action_on_cancel == 'turn_off' }}"
+                    sequence:
+                      - service: homeassistant.turn_off
+                        target:
+                          device_id: !input switch_device
+                  - conditions:
+                      - condition: and
+                        conditions:
+                          - condition: trigger
+                            id: "timer_cancelled"
+                          - condition: template
+                            value_template: "{{ load_action_on_cancel == 'turn_on' }}"
+                    sequence:
+                      - service: homeassistant.turn_on
+                        target:
+                          device_id: !input switch_device
           - if:
               - condition: template
                 value_template: "{{ control_other_entities is defined and control_other_entities | length > 0 }}"
@@ -295,7 +347,7 @@ action:
               - service: homeassistant.turn_off
                 target:
                   entity_id: "{{ control_other_entities }}"
-          # Clear all LEDs
+          # Clear all LEDs (shared by both finish and cancel)
           - repeat:
               count: 7
               sequence:
