@@ -3,7 +3,7 @@ blueprint:
   description: |
     Bind a Home Assistant timer entity to an Inovelli Blue Series switch.
 
-    Version 2026.04.03.1
+    Version 2026.05.03.1
   domain: automation
   input:
     timer_entity:
@@ -78,7 +78,7 @@ blueprint:
         boolean:
     load_action_on_cancel:
       name: Load action on cancel
-      description: "What to do with the load when the timer is cancelled (finish always turns the load off when control load is enabled)."
+      description: "What to do with the switch load and with \"Other entities to control\" when the timer is cancelled (finish always turns them off when the corresponding control options are enabled)."
       default: "none"
       selector:
         select:
@@ -344,9 +344,36 @@ action:
               - condition: template
                 value_template: "{{ control_other_entities is defined and control_other_entities | length > 0 }}"
             then:
-              - service: homeassistant.turn_off
-                target:
-                  entity_id: "{{ control_other_entities }}"
+              - choose:
+                  - conditions:
+                      - condition: trigger
+                        id: "timer_finished"
+                    sequence:
+                      - service: homeassistant.turn_off
+                        target:
+                          entity_id: "{{ control_other_entities }}"
+                  - conditions:
+                      - condition: and
+                        conditions:
+                          - condition: trigger
+                            id: "timer_cancelled"
+                          - condition: template
+                            value_template: "{{ load_action_on_cancel == 'turn_off' }}"
+                    sequence:
+                      - service: homeassistant.turn_off
+                        target:
+                          entity_id: "{{ control_other_entities }}"
+                  - conditions:
+                      - condition: and
+                        conditions:
+                          - condition: trigger
+                            id: "timer_cancelled"
+                          - condition: template
+                            value_template: "{{ load_action_on_cancel == 'turn_on' }}"
+                    sequence:
+                      - service: homeassistant.turn_on
+                        target:
+                          entity_id: "{{ control_other_entities }}"
           # Clear all LEDs (shared by both finish and cancel)
           - repeat:
               count: 7
