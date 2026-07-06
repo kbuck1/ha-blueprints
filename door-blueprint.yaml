@@ -3,7 +3,7 @@ blueprint:
   description: |
     Rich notifications including timestamps for sensor conditions.
 
-    Version 2025.05.05.1
+    Version 2026.07.06.1
   # Ideas:
   # - DONE: Configurable delay for when to show the notification
   # - DONE: Optionally suppress notifications if home (separate configurable delay?)
@@ -26,7 +26,7 @@ blueprint:
             - cover
     friendly_name:
       name: Friendly name
-      description: "Optional: The readable name for the triggering entity. Default: Entity friendly name with the last word removed (e.g. Front door Opening => Front door)."
+      description: "Optional: The readable name for the triggering entity. Default: Entity friendly name."
       default: ""
       selector:
         text:
@@ -161,7 +161,7 @@ action:
         {% if input_friendly_name|length > 0 %}
           {{ input_friendly_name }}
         {% else %}
-          {{ state_attr(trigger_entity, 'friendly_name').rsplit(' ', 1)[0] }}
+          {{ state_attr(trigger_entity, 'friendly_name') }}
         {% endif %}
       notification_tag: "{{ trigger_entity[-20:] }}-door-open"
   - choose:
