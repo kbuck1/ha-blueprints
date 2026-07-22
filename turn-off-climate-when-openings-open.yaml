@@ -1,0 +1,91 @@
+blueprint:
+  name: Turn off climate when openings open
+  description: |
+    Turn a climate entity off and send a notification when listed door/window
+    openings are open. Windows take effect immediately; doors wait for a
+    configurable duration (default 3 minutes).
+
+    Version 2026.07.21.1
+  domain: automation
+  source_url: https://github.com/kbuck1/ha-blueprints/blob/main/turn-off-climate-when-openings-open.yaml
+  homeassistant:
+    min_version: "2026.7.0"
+  input:
+    thermostat:
+      name: Thermostat
+      description: The climate entity to turn off when openings are open.
+      selector:
+        entity:
+          domain: climate
+    openings:
+      name: Openings
+      description: >
+        Door and window contact sensors that should prevent this thermostat
+        from running. Windows turn the thermostat off immediately; doors wait
+        for the door open duration.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class:
+            - door
+            - window
+          multiple: true
+    notify_service:
+      name: Notify service
+      description: The notify service to call when the thermostat is turned off.
+      default: notify.mobile_phones
+      selector:
+        text:
+    door_open_duration:
+      name: Door open duration
+      description: How long a door must stay open before the thermostat is turned off.
+      default:
+        hours: 0
+        minutes: 3
+        seconds: 0
+      selector:
+        duration:
+
+mode: single
+max_exceeded: silent
+
+variables:
+  thermostat_entity: !input thermostat
+
+triggers:
+  - trigger: climate.turned_on
+    target:
+      entity_id: !input thermostat
+  - trigger: window.opened
+    target:
+      entity_id: !input openings
+  - trigger: door.opened
+    target:
+      entity_id: !input openings
+    options:
+      for: !input door_open_duration
+
+conditions:
+  - condition: climate.is_on
+    target:
+      entity_id: !input thermostat
+  - condition: or
+    conditions:
+      - condition: window.is_open
+        target:
+          entity_id: !input openings
+      - condition: door.is_open
+        target:
+          entity_id: !input openings
+        options:
+          for: !input door_open_duration
+
+actions:
+  - action: climate.turn_off
+    target:
+      entity_id: !input thermostat
+  - action: !input notify_service
+    data:
+      message: >-
+        {{ state_attr(thermostat_entity, 'friendly_name') | default(thermostat_entity) }}
+        turned off because a door or window is open
